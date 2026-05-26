@@ -10,7 +10,7 @@ CREATE TABLE raw_trips (
 	VendorID INT,
 	lpep_pickup_datetime DATETIME,
 	lpep_dropoff_datetime DATETIME,
-	store_and_fwd_flag VARCHAR(1),
+	store_and_fwd_flag CHAR(1),
 	RatecodeID INT,
 	PULocationID INT,
 	DOLocationID INT,
@@ -127,22 +127,30 @@ EXEC sp_rename 'raw_trips.trip_type', 'trip_type_id', 'COLUMN'
 
 ALTER TABLE raw_trips ADD trip_id INT IDENTITY(1, 1) PRIMARY KEY 
 
--- 14. Increment values in payment_type_id column (in order to be 1 as the first value, not 0)
+-- 14. Replace physically impossible trip distances (>= 100 miles) with NULL
+
+UPDATE raw_trips
+SET trip_distance = NULL
+WHERE trip_distance >= 80;
+
+-- 2,155 rows affected. Values >= 80 miles are physically impossible for NYC taxi trips.
+
+-- 15. Increment values in payment_type_id column (in order to be 1 as the first value, not 0)
 
 UPDATE trips
 SET payment_type_id = payment_type_id + 1
 WHERE payment_type_id IS NOT NULL
 
--- 15. Rename table raw_trips -> trips
+-- 16. Rename table raw_trips -> trips
 
 EXEC sp_rename 'dbo.raw_trips', 'trips' 
 
--- 16. View final schema
+-- 17. View final schema
 
 SELECT COLUMN_NAME, DATA_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE
 FROM INFORMATION_SCHEMA.COLUMNS 
 
--- 17. Create new tables to store the decoded descriptions of the IDs mentioned in the dataset's data dictionary and fill them with values
+-- 18. Create new tables to store the decoded descriptions of the IDs mentioned in the dataset's data dictionary and fill them with values
 
 CREATE TABLE vendors (id INT PRIMARY KEY, name VARCHAR(100) NOT NULL)
 CREATE TABLE rate_codes (id INT PRIMARY KEY, description VARCHAR(100) NOT NULL)
@@ -168,7 +176,7 @@ INSERT INTO payment_types VALUES (1, 'Flex Fare trip'),
 INSERT INTO trip_types VALUES (1, 'Street-hail'),
 							  (2, 'Dispatch') 
 
--- 18. Check that columns vendor_id, rate_code_id, payment_type_id and trip_type_id in table trips don’t contain values that are not listed
+-- 19. Check that columns vendor_id, rate_code_id, payment_type_id and trip_type_id in table trips don’t contain values that are not listed
 --     in tables vendors, rate_codes, payment_types and trip_types correspondingly.
 
 SELECT DISTINCT trip_type_id, COUNT(*) AS unique_trip_type_id_cnt
@@ -176,13 +184,13 @@ FROM trips
 GROUP BY trip_type_id
 ORDER BY trip_type_id; 
 
--- 19. Value "5" in vendor_id not listed in vendors table -> it should be replaced with NULL. No issues with other columns found
+-- 20. Value "5" in vendor_id not listed in vendors table -> it should be replaced with NULL. No issues with other columns found
 
 UPDATE trips
 SET vendor_id = NULL
 WHERE vendor_id = 5
 
--- 20. Create foreign keys
+-- 21. Create foreign keys
 
 ALTER TABLE trips ADD CONSTRAINT FK_trips_vendors FOREIGN KEY (vendor_id) REFERENCES vendors(id)
 ALTER TABLE trips ADD CONSTRAINT FK_trips_rate_codes FOREIGN KEY (rate_code_id) REFERENCES rate_codes(id)
