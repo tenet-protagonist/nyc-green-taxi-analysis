@@ -1,4 +1,4 @@
-USE green_taxi_trips
+USE green_taxi_trips_2023
 GO
 
 -- 1. Find the top 5 pickup locations by revenue (for each month separately)
@@ -129,7 +129,6 @@ SELECT DISTINCT vendor_id, CAST(PERCENTILE_CONT(0.5)
 								OVER (PARTITION BY vendor_id) as DECIMAL(8, 2)
 							   ) AS median_distance
 FROM trips
-WHERE vendor_id IS NOT NULL
 
 -- 7. Trip distance buckets: short / medium / long — trip count, avg fare, total revenue
 
@@ -184,3 +183,13 @@ SELECT tcbwh.*,
 	   CAST(ROUND(tcbwh.trip_count / atc.average_trip_count, 2) AS DECIMAL(8,  2)) AS demand_index
 FROM trips_count_by_weekday_hour tcbwh
 CROSS JOIN average_trip_count atc
+
+-- Create views for zones table (to manage relationships between do/pu locations and zones table
+
+CREATE VIEW vw_pu_zones AS
+SELECT id, borough, zone, service_zone
+FROM zones
+
+CREATE VIEW vw_do_zones AS
+SELECT id, borough, zone, service_zone
+FROM zones

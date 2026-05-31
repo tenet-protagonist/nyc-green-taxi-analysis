@@ -1,8 +1,8 @@
 -- 1. Create db green_taxi_trips
 
-CREATE DATABASE green_taxi_trips
-USE green_taxi_trips
-GO 
+CREATE DATABASE green_taxi_trips_2023
+USE green_taxi_trips_2023
+GO
 
 -- 2. Create table raw_trips
 
@@ -32,7 +32,7 @@ CREATE TABLE raw_trips (
 -- 3. Import values from csv
 
 BULK INSERT raw_trips
-FROM 'D:\Project\Taxi_trips\2021_Green_Taxi_Trip_Data_20260522.csv'
+FROM 'D:\Project\Taxi_trips\2023_Green_Taxi_Trip_Data_20260528.csv'
 WITH (
 		FORMAT = 'CSV',
 		ROWTERMINATOR = '0x0a',
@@ -50,7 +50,7 @@ ALTER TABLE raw_trips ALTER COLUMN total_amount VARCHAR(10)
 -- 5. Import values again
 
 BULK INSERT raw_trips
-FROM 'D:\Project\Taxi_trips\2021_Green_Taxi_Trip_Data_20260522.csv'
+FROM 'D:\Project\Taxi_trips\2023_Green_Taxi_Trip_Data_20260528.csv'
 WITH (
 		FORMAT = 'CSV',
 		ROWTERMINATOR = '0x0a',
@@ -127,17 +127,25 @@ EXEC sp_rename 'raw_trips.trip_type', 'trip_type_id', 'COLUMN'
 
 ALTER TABLE raw_trips ADD trip_id INT IDENTITY(1, 1) PRIMARY KEY 
 
--- 14. Replace physically impossible trip distances (>= 100 miles) with NULL
+-- 14.1. Replace physically impossible trip distances (>= 80 miles) with NULL
 
 UPDATE raw_trips
 SET trip_distance = NULL
-WHERE trip_distance >= 80;
+WHERE trip_distance >= 80
 
--- 2,155 rows affected. Values >= 80 miles are physically impossible for NYC taxi trips.
+-- 582 rows affected. Values >= 80 miles are physically impossible for NYC taxi trips.
+
+-- 14.2. Remove rows with invalid dates
+
+DELETE FROM raw_trips
+WHERE lpep_pickup_datetime < '2023-01-01' OR lpep_pickup_datetime >= '2024-01-01' OR
+	  lpep_dropoff_datetime < '2023-01-01' OR lpep_dropoff_datetime >= '2024-01-01'
+
+-- 18 rows affected
 
 -- 15. Increment values in payment_type_id column (in order to be 1 as the first value, not 0)
 
-UPDATE trips
+UPDATE raw_trips
 SET payment_type_id = payment_type_id + 1
 WHERE payment_type_id IS NOT NULL
 
@@ -155,7 +163,8 @@ FROM INFORMATION_SCHEMA.COLUMNS
 CREATE TABLE vendors (id INT PRIMARY KEY, name VARCHAR(100) NOT NULL)
 CREATE TABLE rate_codes (id INT PRIMARY KEY, description VARCHAR(100) NOT NULL)
 CREATE TABLE payment_types (id INT PRIMARY KEY, type VARCHAR(100) NOT NULL)
-CREATE TABLE trip_types (id INT PRIMARY KEY, type VARCHAR(100) NOT NULL) 
+CREATE TABLE trip_types (id INT PRIMARY KEY, type VARCHAR(100) NOT NULL)
+CREATE TABLE zones (id INT PRIMARY KEY, borough VARCHAR(50), zone VARCHAR(50), service_zone VARCHAR(30))
 
 INSERT INTO vendors VALUES (1, 'Creative Mobile Technologies, LLC'),
 						   (2, 'VeriFone Inc.')
@@ -176,23 +185,43 @@ INSERT INTO payment_types VALUES (1, 'Flex Fare trip'),
 INSERT INTO trip_types VALUES (1, 'Street-hail'),
 							  (2, 'Dispatch') 
 
+BULK INSERT zones
+FROM 'D:\Project\Taxi_trips\taxi_zone_lookup.csv'
+WITH (
+    DATAFILETYPE = 'char',
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '\n',
+	FIELDQUOTE = '"',
+    FIRSTROW = 2
+)
+
 -- 19. Check that columns vendor_id, rate_code_id, payment_type_id and trip_type_id in table trips don’t contain values that are not listed
 --     in tables vendors, rate_codes, payment_types and trip_types correspondingly.
+
+SELECT DISTINCT vendor_id, COUNT(*) AS unique_vendor_id_cnt
+FROM trips
+GROUP BY vendor_id
+ORDER BY vendor_id;
+
+SELECT DISTINCT rate_code_id, COUNT(*) AS unique_rate_code_id_cnt
+FROM trips
+GROUP BY rate_code_id
+ORDER BY rate_code_id; 
+
+SELECT DISTINCT payment_type_id, COUNT(*) AS unique_payment_type_id_cnt
+FROM trips
+GROUP BY payment_type_id
+ORDER BY payment_type_id; 
 
 SELECT DISTINCT trip_type_id, COUNT(*) AS unique_trip_type_id_cnt
 FROM trips
 GROUP BY trip_type_id
 ORDER BY trip_type_id; 
 
--- 20. Value "5" in vendor_id not listed in vendors table -> it should be replaced with NULL. No issues with other columns found
-
-UPDATE trips
-SET vendor_id = NULL
-WHERE vendor_id = 5
-
--- 21. Create foreign keys
+-- 20. Create foreign keys
 
 ALTER TABLE trips ADD CONSTRAINT FK_trips_vendors FOREIGN KEY (vendor_id) REFERENCES vendors(id)
 ALTER TABLE trips ADD CONSTRAINT FK_trips_rate_codes FOREIGN KEY (rate_code_id) REFERENCES rate_codes(id)
 ALTER TABLE trips ADD CONSTRAINT FK_trips_payment_types FOREIGN KEY (payment_type_id) REFERENCES payment_types(id)
 ALTER TABLE trips ADD CONSTRAINT FK_trips_trip_types FOREIGN KEY (trip_type_id) REFERENCES trip_types(id)
+ALTER TABLE trips ADD CONSTRAINT FK_trips_pu_zones FOREIGN KEY (pu_location_id) REFERENCES zones(id)
