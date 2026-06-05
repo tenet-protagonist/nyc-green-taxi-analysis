@@ -1,5 +1,4 @@
 -- 1. Create db green_taxi_trips
-
 CREATE DATABASE green_taxi_trips_2023
 USE green_taxi_trips_2023
 GO
@@ -95,70 +94,83 @@ ALTER TABLE raw_trips ALTER COLUMN trip_distance DECIMAL(8, 2)
 ALTER TABLE raw_trips ALTER COLUMN fare_amount DECIMAL(8, 2)
 ALTER TABLE raw_trips ALTER COLUMN total_amount DECIMAL(9, 2)
 
--- 9. Replace 'Y' / 'N' values with 1 / 0 and change column type from VARCHAR to BIT
-
-UPDATE raw_trips
-	SET store_and_fwd_flag = CASE store_and_fwd_flag
-							 WHEN 'Y' THEN '1'
-							 WHEN 'N' THEN '0'
-							 ELSE store_and_fwd_flag
-							 END
-	WHERE store_and_fwd_flag IN ('Y', 'N')
-
-ALTER TABLE raw_trips ALTER COLUMN store_and_fwd_flag BIT
-
--- 10. All values in column ehail_fee are NULL -> drop this column
+-- 9. All values in column ehail_fee are NULL -> drop this column
 
 ALTER TABLE raw_trips DROP column ehail_fee
 
--- 11. Standardize column names (snake_case)
+-- 10. Standardize column names (snake_case)
 
 EXEC sp_rename 'raw_trips.VendorID', 'vendor_id', 'COLUMN'
 EXEC sp_rename 'raw_trips.RatecodeID', 'rate_code_id', 'COLUMN'
 EXEC sp_rename 'raw_trips.PULocationID', 'pu_location_id', 'COLUMN'
 EXEC sp_rename 'raw_trips.DOLocationID', 'do_location_id', 'COLUMN'
 
--- 12. Rename columns payment_type, trip_type (they contain identifiers, not types)
+-- 11. Rename columns payment_type, trip_type (they contain identifiers, not types)
 
 EXEC sp_rename 'raw_trips.payment_type', 'payment_type_id', 'COLUMN'
 EXEC sp_rename 'raw_trips.trip_type', 'trip_type_id', 'COLUMN'
 
--- 13. Assign PRIMARY KEY for table raw_trips and fill it with incremental values
+-- 12. Assign PRIMARY KEY for table raw_trips and fill it with incremental values
 
 ALTER TABLE raw_trips ADD trip_id INT IDENTITY(1, 1) PRIMARY KEY 
 
--- 14.1. Replace physically impossible trip distances (>= 80 miles) with NULL
+-- 13.1. Replace physically impossible trip distances (>= 100 miles) with NULL
 
 UPDATE raw_trips
 SET trip_distance = NULL
-WHERE trip_distance >= 80
+WHERE trip_distance >= 100
 
--- 582 rows affected. Values >= 80 miles are physically impossible for NYC taxi trips.
+-- 582 rows affected. Values >= 100 miles are physically impossible for NYC taxi trips.
 
--- 14.2. Remove rows with invalid dates
+-- 13.1. Tips are actual for credit card payments -> fill NULL values with credit card payment type id where tip_amount is greater than 0
+UPDATE raw_trips
+SET payment_type_id = 2
+FROM raw_trips
+WHERE tip_amount <> 0 AND payment_type_id IS NULL
+
+-- Other NULL values fill with 'Unknown' type
+
+UPDATE raw_trips
+SET payment_type_id = 6
+WHERE payment_type_id IS NULL
+
+UPDATE raw_trips
+SET trip_type_id = 3
+WHERE trip_type_id IS NULL
+
+-- 13.2. Remove rows where trip_distance <= 0 / fare_amount <= 0 / total_amount <= 0
+
+DELETE FROM raw_trips
+WHERE (trip_distance <= 0) OR (fare_amount <= 0) OR (total_amount <= 0)
+
+-- 13.3. Remove rows with invalid dates
 
 DELETE FROM raw_trips
 WHERE lpep_pickup_datetime < '2023-01-01' OR lpep_pickup_datetime >= '2024-01-01' OR
 	  lpep_dropoff_datetime < '2023-01-01' OR lpep_dropoff_datetime >= '2024-01-01'
 
+-- 13.4. Drop columns that will not be used
+ALTER TABLE raw_trips
+DROP COLUMN store_and_fwd_flag, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, congestion_surcharge
+
 -- 18 rows affected
 
--- 15. Increment values in payment_type_id column (in order to be 1 as the first value, not 0)
+-- 14. Increment values in payment_type_id column (in order to be 1 as the first value, not 0)
 
 UPDATE raw_trips
 SET payment_type_id = payment_type_id + 1
 WHERE payment_type_id IS NOT NULL
 
--- 16. Rename table raw_trips -> trips
+-- 15. Rename table raw_trips -> trips
 
 EXEC sp_rename 'dbo.raw_trips', 'trips' 
 
--- 17. View final schema
+-- 16. View final schema
 
 SELECT COLUMN_NAME, DATA_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE
 FROM INFORMATION_SCHEMA.COLUMNS 
 
--- 18. Create new tables to store the decoded descriptions of the IDs mentioned in the dataset's data dictionary and fill them with values
+-- 17. Create new tables to store the decoded descriptions of the IDs mentioned in the dataset's data dictionary and fill them with values
 
 CREATE TABLE vendors (id INT PRIMARY KEY, name VARCHAR(100) NOT NULL)
 CREATE TABLE rate_codes (id INT PRIMARY KEY, description VARCHAR(100) NOT NULL)
@@ -183,19 +195,20 @@ INSERT INTO payment_types VALUES (1, 'Flex Fare trip'),
 								 (6, 'Unknown'),
 								 (7, 'Voided trip')
 INSERT INTO trip_types VALUES (1, 'Street-hail'),
-							  (2, 'Dispatch') 
+							  (2, 'Dispatch'),
+							  (3, 'Unknown')
 
 BULK INSERT zones
 FROM 'D:\Project\Taxi_trips\taxi_zone_lookup.csv'
 WITH (
-    DATAFILETYPE = 'char',
+    FORMAT = 'CSV',
     FIELDTERMINATOR = ',',
+    FIELDQUOTE = '"',
     ROWTERMINATOR = '\n',
-	FIELDQUOTE = '"',
     FIRSTROW = 2
-)
+);
 
--- 19. Check that columns vendor_id, rate_code_id, payment_type_id and trip_type_id in table trips don’t contain values that are not listed
+-- 18. Check that columns vendor_id, rate_code_id, payment_type_id and trip_type_id in table trips don’t contain values that are not listed
 --     in tables vendors, rate_codes, payment_types and trip_types correspondingly.
 
 SELECT DISTINCT vendor_id, COUNT(*) AS unique_vendor_id_cnt
@@ -218,7 +231,7 @@ FROM trips
 GROUP BY trip_type_id
 ORDER BY trip_type_id; 
 
--- 20. Create foreign keys
+-- 19. Create foreign keys
 
 ALTER TABLE trips ADD CONSTRAINT FK_trips_vendors FOREIGN KEY (vendor_id) REFERENCES vendors(id)
 ALTER TABLE trips ADD CONSTRAINT FK_trips_rate_codes FOREIGN KEY (rate_code_id) REFERENCES rate_codes(id)
