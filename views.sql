@@ -16,7 +16,7 @@ FROM pu_location_revenue
 SELECT *
 FROM pu_location_rank
 WHERE rank <= 5
-
+GO
 
 -- 2. Busiest rolling 3-hour window of the day
 -- Business case: Operational planning and surge pricing. Determines when to deploy maximum fleet capacity and when to activate dynamic pricing.
@@ -42,11 +42,9 @@ WHERE hour <= 23
 )
 SELECT hour as window_start, (hour + 3) % 24 AS window_end, window_trip_count
 FROM rolling
+GO
 
 -- 3. Revenue contribution % of each vendor per month
---	  Business case: Vendor portfolio analysis. Identifies which vendors are growing and which are stagnating — drives contract
---	  renewal decisions and investment allocation.
---	  filtered rows where vendor_id is NULL
 
 CREATE VIEW vw_vendor_revenue_comparison AS
 WITH total_revenue_by_month AS (
@@ -76,7 +74,8 @@ SELECT month, vendor_id, vendor_revenue, total_revenue, revenue_share_percentage
 	   WHEN revenue_share_percentage - previous_revenue_share_percentage <= -5 THEN 1
 	   ELSE 0
 	   END AS flag
-FROM vendor_revenue_comparison_by_month 
+FROM vendor_revenue_comparison_by_month
+GO
 
 -- A threshold of 5% was selected based on observed data distribution — typical month-over-month fluctuations remain within 0.1–3.3%,
 -- making 5% a meaningful signal of abnormal vendor performance.
@@ -98,6 +97,7 @@ FROM route_stats
 SELECT * 
 FROM route_rank
 WHERE rank <= 10 
+GO
 
 -- 5. Anomalous trips: distance = 0, but fare > $10, or trip duration < 1 minute, but distance > 0
 
@@ -120,6 +120,7 @@ GROUP BY
         WHEN DATEDIFF(MINUTE, lpep_pickup_datetime, lpep_dropoff_datetime) < 1 
              AND trip_distance > 0 THEN 'Impossible duration'
     END 
+GO
 
 -- 6. Median trip distance per vendor
 
@@ -129,6 +130,7 @@ SELECT DISTINCT vendor_id, CAST(PERCENTILE_CONT(0.5)
 								OVER (PARTITION BY vendor_id) as DECIMAL(8, 2)
 							   ) AS median_distance
 FROM trips
+GO
 
 -- 7. Trip distance buckets: short / medium / long — trip count, avg fare, total revenue
 
@@ -149,6 +151,7 @@ SELECT trip_distance_bucket,
        CAST(ROUND((SUM(total_amount) / SUM(trip_distance)), 2) AS DECIMAL(10,2)) AS revenue_per_mile
 FROM distance_bucket
 GROUP BY trip_distance_bucket  
+GO
 
 -- 8. For each day of the week find the hour with the highest average fare
 
@@ -165,6 +168,7 @@ FROM average_fare_all_hours
 SELECT weekday, hour, average_fare
 FROM average_fare_hours_rank
 WHERE rank = 1
+GO
 
 -- 9. Demand seasonality index by hour and day of week
 
@@ -183,13 +187,16 @@ SELECT tcbwh.*,
 	   CAST(ROUND(tcbwh.trip_count / atc.average_trip_count, 2) AS DECIMAL(8,  2)) AS demand_index
 FROM trips_count_by_weekday_hour tcbwh
 CROSS JOIN average_trip_count atc
+GO
 
--- Create views for zones table (to manage relationships between do/pu locations and zones table
+-- Create views for zones table (to manage relationships between do/pu locations and zones table)
 
 CREATE VIEW vw_pu_zones AS
 SELECT id, borough, zone, service_zone
 FROM zones
+GO
 
 CREATE VIEW vw_do_zones AS
 SELECT id, borough, zone, service_zone
 FROM zones
+GO
