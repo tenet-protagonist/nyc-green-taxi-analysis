@@ -27,7 +27,7 @@ This project analyzes **787,000+ green taxi trips** across New York City in 2023
 The Power BI report is organized into four pages:<br><br>
 • **Overview**  
 
-<img width="1438" height="804" alt="overview" src="https://github.com/user-attachments/assets/e4cd3622-f693-4a94-8bc2-d98a4eadfa33" /><br>
+<img width="1455" height="817" alt="overview" src="https://github.com/user-attachments/assets/58526ecc-2655-424f-9bbf-35a7fbd09d65" /><br>
 High-level KPIs and monthly trends across revenue, trip volume, payment methods, and average fares.<br><br>
 • **Demand**  
 
