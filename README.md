@@ -35,8 +35,8 @@ High-level KPIs and monthly trends across revenue, trip volume, payment methods,
 Rolling 3-hour demand windows, an hour-by-day heatmap, and average fare by hour of day.<br><br>
 • **Routes & Locations**  
 
-<img width="1454" height="816" alt="routes" src="https://github.com/user-attachments/assets/b65a1e7a-4f7a-4483-a956-0c366802cf18" /><br>
-Top 5 pickup locations by month, top 10 most profitable routes, and average fare broken down by borough.<br><br>
+<img width="1456" height="817" alt="routes" src="https://github.com/user-attachments/assets/62696d08-829e-4cfa-84eb-7008f21d6278" /><br>
+Top 5 pickup zones by month, top 10 most profitable routes, and average fare broken down by borough.<br><br>
 • **Trip Profiles**  
 
 <img width="1455" height="816" alt="trip_profiles" src="https://github.com/user-attachments/assets/f2e4936d-b0b9-437e-8918-fd7b2d47566a" />
