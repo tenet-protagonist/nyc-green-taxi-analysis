@@ -27,19 +27,19 @@ This project analyzes **787,000+ green taxi trips** across New York City in 2023
 The Power BI report is organized into four pages:<br><br>
 • **Overview**  
 
-<img width="1455" height="817" alt="overview" src="https://github.com/user-attachments/assets/58526ecc-2655-424f-9bbf-35a7fbd09d65" /><br>
+![Overview](/screenshots/overview.png)<br>
 High-level KPIs and monthly trends across revenue, trip volume, payment methods, and average fares.<br><br>
 • **Demand**  
 
-<img width="1455" height="817" alt="demand" src="https://github.com/user-attachments/assets/44e00461-83c9-43e5-af10-a61ab3835fae" /><br>
+![Demand](/screenshots/demand.png)<br>
 Rolling 3-hour demand windows, an hour-by-day heatmap, and average fare by hour of day.<br><br>
 • **Routes & Locations**  
 
-<img width="1456" height="817" alt="routes" src="https://github.com/user-attachments/assets/62696d08-829e-4cfa-84eb-7008f21d6278" /><br>
+![Routes & Locations](/screenshots/routes.png)<br>
 Top 5 pickup zones by month, top 10 most profitable routes, and average fare broken down by borough.<br><br>
 • **Trip Profiles**  
 
-<img width="1455" height="816" alt="trip_profiles" src="https://github.com/user-attachments/assets/f2e4936d-b0b9-437e-8918-fd7b2d47566a" />
+![Trip Profiles](/screenshots/trip_profiles.png)
 Distance-bucket analysis (short/medium/long), revenue per mile, passenger count distribution, and average trip duration.
 
 ---
